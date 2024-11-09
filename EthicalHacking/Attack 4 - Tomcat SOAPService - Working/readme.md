@@ -91,19 +91,21 @@ EOF
 
 # Create the Google Cloud instance with the startup script
 gcloud compute instances create "complex-vulnerable-instance" \
-  --zone "asia-east1-a" \
-  --machine-type "n1-standard-1" \
+  --zone "asia-south2-a" \
+  --machine-type "c2-standard-4" \
   --image-family "ubuntu-2004-lts" \
   --image-project "ubuntu-os-cloud" \
   --boot-disk-size "10GB" \
   --tags "complex-vulnerable-instance" \
-  --metadata-from-file startup-script=startup-script.sh
+  --metadata-from-file startup-script=tmp/startup-script.sh
 
 # Configure firewall to allow traffic only on ports 80 and 443
 gcloud compute firewall-rules create "allow-http-https" \
   --allow tcp:80,tcp:443 \
   --target-tags "complex-vulnerable-instance" \
   --direction INGRESS
+
+echo "Wait 5 minutes for server to setup. Then start testing the vulnerability."
 ```
 
 ---
