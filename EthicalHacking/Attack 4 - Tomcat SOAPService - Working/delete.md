@@ -2,22 +2,22 @@ Below is the `delete.sh` script that will remove all resources created by the `s
 
 ---
 
-## **Delete Script: `delete.sh`**
+## **Delete Script: Create `nano delete.sh` then paste these**
 
 ```bash
 #!/bin/bash
 
+mkdir attack-4-tomcat
+cd attack-4-tomcat
+
 # Delete the Compute Engine instance
-sudo gcloud compute instances delete "complex-vulnerable-instance" \
-  --zone "us-central1-a" \
-  --quiet
+gcloud compute instances delete "attack-4-tomcat" --zone "asia-east1-a" --quiet
 
 # Delete the firewall rule
-sudo gcloud compute firewall-rules delete "allow-http-https" \
-  --quiet
+gcloud compute firewall-rules delete "allow-http-https-attack-4-tomcat" --quiet
 
 # Clean up any local files created during setup
-sudo rm -f startup-script.sh
+rm -f startup-script.sh
 
 # Optionally, remove the setup script
 # Uncomment the following line if you want to delete the setup script

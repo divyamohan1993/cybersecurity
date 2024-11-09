@@ -3,6 +3,9 @@ Certainly! Below is a shell script (`setup_complex_server.sh`) that creates a Go
 ```bash
 #!/bin/bash
 
+mkdir attack-4-tomcat
+cd attack-4-tomcat
+
 # Create the startup script
 cat <<'EOF' > startup-script.sh
 #!/bin/bash
@@ -88,22 +91,35 @@ sudo chown -R tomcat:tomcat /var/lib/tomcat9/webapps/ROOT
 # Restart Tomcat
 sudo systemctl restart tomcat9
 EOF
+cd ..
 
 # Create the Google Cloud instance with the startup script
-gcloud compute instances create "complex-vulnerable-instance" \
+# gcloud compute instances create "attack-4-tomcat" \
+#   --zone "asia-south2-a" \
+#   --machine-type "c2-standard-4" \
+#   --image-family "ubuntu-2004-lts" \
+#   --image-project "ubuntu-os-cloud" \
+#   --boot-disk-size "10GB" \
+#   --tags "attack-4-tomcat" \
+#   --metadata-from-file startup-script=startup-script.sh
+
+# Create the instance with automatic deletion after 1 hour
+gcloud compute instances create "attack-4-tomcat" \
   --zone "asia-south2-a" \
   --machine-type "c2-standard-4" \
   --image-family "ubuntu-2004-lts" \
   --image-project "ubuntu-os-cloud" \
   --boot-disk-size "10GB" \
-  --tags "complex-vulnerable-instance" \
-  --metadata-from-file startup-script=tmp/startup-script.sh
+  --tags "http-server,https-server,lb-health-check,attack-4-tomcat" \
+  --metadata-from-file startup-script=startup-script.sh \
+  --metadata google-compute-default-timeout=600 \
+  --deletion-protection=false
 
-# Configure firewall to allow traffic only on ports 80 and 443
-gcloud compute firewall-rules create "allow-http-https" \
-  --allow tcp:80,tcp:443 \
-  --target-tags "complex-vulnerable-instance" \
-  --direction INGRESS
+# # Configure firewall to allow traffic only on ports 80 and 443
+# gcloud compute firewall-rules create "allow-http-https" \
+#   --allow tcp:80,tcp:443 \
+#   --target-tags "attack-4-tomcat" \
+#   --direction INGRESS
 
 echo "Wait 5 minutes for server to setup. Then start testing the vulnerability."
 ```
