@@ -110,7 +110,7 @@ EOF3
 # Create the instance with termination and auto-delete after 600 seconds
 gcloud compute instances create "attack-4-tomcat" \
   --zone "asia-south2-a" \
-  --machine-type "c2-standard-4" \
+  --machine-type "c2-standard-8" \
   --image-family "ubuntu-2004-lts" \
   --image-project "ubuntu-os-cloud" \
   --boot-disk-size "10GB" \
@@ -128,6 +128,11 @@ eip=$(gcloud compute instances describe "attack-4-tomcat" \
   --format="get(networkInterfaces[0].accessConfigs[0].natIP)")
 
 echo "External IP Address: $eip"
+
+RESPONSE=$(curl -s "https://dynv6.com/api/update?zone=attack-4.dynv6.net&token=88UTUoLV_bpbh7JtQuXnfwFwa9jgsZ&ipv4=$eip")
+
+# Log the response
+echo "$(date): Updated Dynv6 for attack-4.dynv6.net. Response: $RESPONSE. IP: $eip"
 
 # Install Netcat (openbsd version recommended)
 echo "Installing Netcat (openbsd)..."
@@ -153,11 +158,14 @@ echo "Port 80 is live! Proceeding with tests."
 
 # Testing with Hello World
 echo "Testing with Hello World..."
-curl -X POST -H "Content-Type: application/xml" --data @simple.xml http://$eip/SOAPService
+# curl -X POST -H "Content-Type: application/xml" --data @simple.xml http://$eip/SOAPService
+curl -X POST -H "Content-Type: application/xml" --data @simple.xml https://attack-4.dmj.one/SOAPService
+echo ""
 
 # Testing with malicious payload
 echo "Fetching contents of /etc/passwd file..."
-curl -X POST -H "Content-Type: application/xml" --data @malicious.xml http://$eip/SOAPService
+# curl -X POST -H "Content-Type: application/xml" --data @malicious.xml http://$eip/SOAPService
+curl -X POST -H "Content-Type: application/xml" --data @malicious.xml https://attack-4.dmj.one/SOAPService
 ```
 
 ---

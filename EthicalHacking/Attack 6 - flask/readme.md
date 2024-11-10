@@ -37,7 +37,7 @@ def index():
         </head>
         <body>
             <div class="container text-center">
-                <h1 class="mb-4">Welcome to the Network Utility</h1>
+                <h1 class="my-4">Network Ping Utility</h1>
                 <p>Enter an IP address or hostname to ping:</p>
                 <form action="/ping" method="post" class="mb-3">
                     <div class="input-group">
@@ -45,7 +45,7 @@ def index():
                         <button type="submit" class="btn btn-primary">Ping</button>
                     </div>
                 </form>
-            </div>
+            </div>            
         </body>
         </html>
     '''
@@ -67,7 +67,7 @@ def ping():
         </head>
         <body>
             <div class="container">
-                <h1 class="mb-4">Ping Result</h1>
+                <h1 class="my-4">Ping Result</h1>
                 <pre>{output}</pre>
                 <a href="/" class="btn btn-secondary mt-3">Go Back</a>
             </div>
