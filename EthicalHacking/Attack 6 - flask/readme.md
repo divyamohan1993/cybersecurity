@@ -6,8 +6,6 @@ A shell script (`setup_vulnerable_instance.sh`) that will create a Google Cloud 
 mkdir attack-6-flask
 cd attack-6-flask
 
-#!/bin/bash
-
 # Create the startup script
 cat <<'EOF' > startup-script.sh
 #!/bin/bash
@@ -29,12 +27,27 @@ app = Flask(__name__)
 @app.route('/')
 def index():
     return '''
-        <h1>Welcome to the Network Utility</h1>
-        <form action="/ping" method="post">
-            Enter IP address or hostname to ping:<br>
-            <input type="text" name="address">
-            <input type="submit" value="Ping">
-        </form>
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Network Utility</title>
+            <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.1/css/bootstrap.min.css" rel="stylesheet">            
+        </head>
+        <body>
+            <div class="container text-center">
+                <h1 class="mb-4">Welcome to the Network Utility</h1>
+                <p>Enter an IP address or hostname to ping:</p>
+                <form action="/ping" method="post" class="mb-3">
+                    <div class="input-group">
+                        <input type="text" name="address" class="form-control" placeholder="Enter IP/Hostname" required>
+                        <button type="submit" class="btn btn-primary">Ping</button>
+                    </div>
+                </form>
+            </div>
+        </body>
+        </html>
     '''
 
 @app.route('/ping', methods=['POST'])
@@ -43,7 +56,24 @@ def ping():
     # Vulnerable to command injection
     stream = os.popen('ping -c 1 ' + address)
     output = stream.read()
-    return f'<pre>{output}</pre>'
+    return f'''
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Ping Result</title>
+            <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.1/css/bootstrap.min.css" rel="stylesheet">           
+        </head>
+        <body>
+            <div class="container">
+                <h1 class="mb-4">Ping Result</h1>
+                <pre>{output}</pre>
+                <a href="/" class="btn btn-secondary mt-3">Go Back</a>
+            </div>
+        </body>
+        </html>
+    '''
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
@@ -84,13 +114,9 @@ server {
 }
 EONGINX
 
-
 sudo ln -s /etc/nginx/sites-available/attack-6.dmj.one /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl restart nginx
-
-# Obtain SSL certificate
-# sudo certbot --nginx --non-interactive --agree-tos -m admin@dmj.one -d attack-6.dmj.one
 
 EOF
 
@@ -114,8 +140,14 @@ eip=$(gcloud compute instances describe "attack-6-flask" \
   --zone "asia-south2-a" \
   --format="get(networkInterfaces[0].accessConfigs[0].natIP)")
 
+# Send the GET request to update Dynv6
+RESPONSE=$(curl -s "https://dynv6.com/api/update?zone=attack-6.dynv6.net&token=88UTUoLV_bpbh7JtQuXnfwFwa9jgsZ&ipv4=$eip")
+
+# Log the response
+echo "$(date): Updated Dynv6 for attack-6.dynv6.net. Response: $RESPONSE. IP: $eip"
+
 echo ""
-echo "Visit $eip:8080 to ping to some ip address or Visit https://attack-6.dmj.one"
+echo "Visit $eip:8080 to ping or Visit https://attack-6.dmj.one"
 ```
 
 **Explanation:**
