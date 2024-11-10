@@ -3,15 +3,22 @@ A shell script (`setup_vulnerable_instance.sh`) that will create a Google Cloud 
 ```bash
 #!/bin/bash
 
+mkdir attack-6-flask
+cd attack-6-flask
+
+#!/bin/bash
+
 # Create the startup script
 cat <<'EOF' > startup-script.sh
 #!/bin/bash
 sudo apt-get update
 sudo apt-get upgrade -y
-sudo apt-get install -y python3 python3-pip
+sudo apt-get install -y python3 python3-pip nginx certbot python3-certbot-nginx
 
+# Install Flask
 pip3 install flask
 
+# Create the Flask app directory
 sudo mkdir -p /opt/vulnerable-app
 sudo tee /opt/vulnerable-app/app.py > /dev/null <<'EOPY'
 from flask import Flask, request
@@ -42,24 +49,65 @@ if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
 EOPY
 
-# Run the application
-nohup python3 /opt/vulnerable-app/app.py > /dev/null 2>&1 &
+# Create a systemd service for the Flask app
+sudo tee /etc/systemd/system/vulnerable-app.service > /dev/null <<'EOS'
+[Unit]
+Description=Flask Vulnerable App
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=/opt/vulnerable-app
+ExecStart=/usr/bin/python3 /opt/vulnerable-app/app.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOS
+
+# Start and enable the Flask app service
+sudo systemctl daemon-reload
+sudo systemctl enable vulnerable-app.service
+sudo systemctl start vulnerable-app.service
+
+# Configure Nginx
+sudo tee /etc/nginx/sites-available/attack-6.dmj.one > /dev/null <<'EONGINX'
+server {
+    listen 80;
+    server_name attack-6.dmj.one;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+EONGINX
+
+
+sudo ln -s /etc/nginx/sites-available/attack-6.dmj.one /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
+
+# Obtain SSL certificate
+# sudo certbot --nginx --non-interactive --agree-tos -m admin@dmj.one -d attack-6.dmj.one
+
 EOF
 
 # Create the instance with termination and auto-delete after 600 seconds
 gcloud compute instances create "attack-6-flask" \
   --zone "asia-south2-a" \
-  --machine-type "c2-standard-4" \
+  --machine-type "c2-standard-8" \
   --image-family "ubuntu-2004-lts" \
   --image-project "ubuntu-os-cloud" \
   --boot-disk-size "10GB" \
-  --tags "http-server,allow-8080,attack-6-flask" \
+  --tags "http-server,https-server,allow-8080,attack-6-flask" \
   --metadata-from-file startup-script=startup-script.sh \
-  --metadata google-compute-default-timeout=600 \
+  --metadata google-compute-default-timeout=310 \
   --maintenance-policy=TERMINATE \
   --provisioning-model=STANDARD \
   --instance-termination-action=DELETE \
-  --max-run-duration=1800s
+  --max-run-duration=300s
 
 # Get the external IP of the created instance
 eip=$(gcloud compute instances describe "attack-6-flask" \
@@ -67,7 +115,7 @@ eip=$(gcloud compute instances describe "attack-6-flask" \
   --format="get(networkInterfaces[0].accessConfigs[0].natIP)")
 
 echo ""
-echo "Visit $eip:8080 To ping to some ip address to check if its working."
+echo "Visit $eip:8080 to ping to some ip address or Visit https://attack-6.dmj.one"
 ```
 
 **Explanation:**
